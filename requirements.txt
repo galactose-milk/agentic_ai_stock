@@ -6,3 +6,5 @@ matplotlib
 scikit-learn
 transformers
 torch
+smartapi-python
+pyotp

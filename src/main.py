@@ -4,16 +4,24 @@ from analyzer import calculate_technical_indicators, analyze_fundamentals
 from trading_agent import TradingAgent
 
 def main():
-    parser = argparse.ArgumentParser(description="Indian Stock Market Scraper & Analyzer & Trading Agent")
-    parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol (e.g., RELIANCE.NS)")
+    parser = argparse.ArgumentParser(description="Indian Stock Market Scraper & Analyzer")
+    parser.add_argument("--ticker", type=str, default="RELIANCE.NS", help="Stock ticker symbol (default: RELIANCE.NS)")
     parser.add_argument("--period", type=str, default="1y", help="Period for historical data (default: 1y)")
-    parser.add_argument("--mode", type=str, default="analyze", choices=["analyze", "trade"], help="Mode: analyze or trade")
+    parser.add_argument("--mode", type=str, default="analyze", choices=["analyze", "trade", "real"], help="Mode: analyze, trade (paper), or real (real money)")
     
     args = parser.parse_args()
     ticker = args.ticker
     
     if args.mode == "trade":
-        agent = TradingAgent()
+        # For real trading, we need to pass the mode
+        # If user wants real trading, they should use --mode real-trade (or we can just use trade and ask for confirmation)
+        # But to keep it simple with existing args, let's add a new choice or just assume 'trade' is paper and 'real' is real.
+        # Let's update the arg parser choices first.
+        pass
+
+    if args.mode in ["trade", "real"]:
+        mode = "real" if args.mode == "real" else "paper"
+        agent = TradingAgent(mode=mode)
         agent.run_strategy(ticker)
         return
 

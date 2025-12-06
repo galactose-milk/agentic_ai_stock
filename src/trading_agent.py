@@ -4,12 +4,22 @@ from scraper import fetch_historical_data, fetch_live_data
 from analyzer import calculate_technical_indicators
 from paper_trading import PaperTradingEngine
 from ml_models import SentimentAnalyzer, PricePredictor
+from brokers.angel_one import AngelOneBroker
+from risk_manager import RiskManager
 
 class TradingAgent:
-    def __init__(self, initial_balance=100000.0):
-        self.engine = PaperTradingEngine(initial_balance)
+    def __init__(self, mode="paper", initial_balance=100000.0):
+        self.mode = mode
         self.sentiment_analyzer = SentimentAnalyzer()
         self.price_predictor = PricePredictor()
+        
+        if self.mode == "paper":
+            self.engine = PaperTradingEngine(initial_balance)
+        elif self.mode == "real":
+            print("Initializing Real Trading Agent (Angel One)...")
+            self.broker = AngelOneBroker()
+            self.broker.authenticate()
+            self.risk_manager = RiskManager()
         
     def get_news_sentiment(self, ticker):
         try:
@@ -27,10 +37,10 @@ class TradingAgent:
             return 0.0
 
     def run_strategy(self, ticker):
-        print(f"\n--- Running Agent Strategy for {ticker} ---")
+        print(f"\n--- Running Agent Strategy for {ticker} ({self.mode.upper()}) ---")
         
         # 1. Get Data
-        hist_data = fetch_historical_data(ticker, period="2y") # Need enough data for training
+        hist_data = fetch_historical_data(ticker, period="2y") 
         if hist_data.empty:
             print("No historical data. Aborting.")
             return
@@ -58,12 +68,8 @@ class TradingAgent:
         print(f"News Sentiment Score: {sentiment_score:.2f}")
         
         # 6. Decision Logic
-        # Strategy:
-        # BUY if Predicted > Current * 1.01 (1% gain predicted) AND Sentiment > -0.2
-        # SELL if Predicted < Current * 0.99 (1% loss predicted) OR Sentiment < -0.5
-        
         decision = "HOLD"
-        quantity = 10 # Fixed quantity for demo
+        quantity = 1 # Start small for real trading
         
         if predicted_price > current_price * 1.005 and sentiment_score > -0.2:
             decision = "BUY"
@@ -72,14 +78,31 @@ class TradingAgent:
             
         print(f"Decision: {decision}")
         
-        if decision == "BUY":
-            self.engine.buy(ticker, current_price, quantity)
-        elif decision == "SELL":
-            self.engine.sell(ticker, current_price, quantity)
+        if decision == "HOLD":
+            return
+
+        # 7. Execution
+        if self.mode == "paper":
+            if decision == "BUY":
+                self.engine.buy(ticker, current_price, quantity)
+            elif decision == "SELL":
+                self.engine.sell(ticker, current_price, quantity)
             
-        # Summary
-        print("\n--- Portfolio Summary ---")
-        summary = self.engine.get_summary()
-        print(f"Balance: {summary['balance']:.2f}")
-        print(f"Holdings: {summary['portfolio']}")
+            # Summary
+            print("\n--- Portfolio Summary ---")
+            summary = self.engine.get_summary()
+            print(f"Balance: {summary['balance']:.2f}")
+            print(f"Holdings: {summary['portfolio']}")
+
+        elif self.mode == "real":
+            if not self.risk_manager.validate_order(ticker, current_price, quantity, decision):
+                print("Order rejected by Risk Manager.")
+                return
+
+            print(f"Placing REAL {decision} Order for {quantity} {ticker}...")
+            order_id = self.broker.place_order(ticker, quantity, decision)
+            if order_id:
+                print(f"Order Executed Successfully. ID: {order_id}")
+            else:
+                print("Order Execution Failed.")
 
